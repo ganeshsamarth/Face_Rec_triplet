@@ -64,10 +64,10 @@ def calc_embs(filepaths, margin=10, batch_size=1):
     for start in range(0, len(aligned_images), batch_size):
         pd.append(model.predict_on_batch(aligned_images[start:start+batch_size]))
     embs = l2_normalize(np.concatenate(pd))
-
+    #print(embs.shape)
     return embs
 
-def train(dir_basepath, names, max_num_img=128):
+def train(dir_basepath, names, max_num_img=20):
     labels = []
     embs = []
     for name in names:
@@ -86,14 +86,15 @@ def train(dir_basepath, names, max_num_img=128):
 
 def infer(le, clf, filepaths):
     embs = calc_embs(filepaths)
-    pred = le.inverse_transform(clf.predict(embs))
-    return pred
+    #pred = le.inverse_transform(clf.predict(embs))
+    return embs
 
 le, clf = train(image_dir_basepath, names)
 acc=list()
+'''
 for names in os.listdir(image_dir_basepath):
     test_file_paths = [os.path.join(image_dir_basepath+'/'+names,images) for images in os.listdir(image_dir_basepath+'/'+names)]
-    pred = infer(le, clf, test_file_paths[:100])
+    pred = infer(le, clf, test_file_paths[:1])
     count=0
     #print(pred)
     for items in pred:
@@ -102,13 +103,53 @@ for names in os.listdir(image_dir_basepath):
     print(names+':'+ str(count/len(pred)))
     acc.append(count/len(pred))
 print(sum(acc)/len(acc))
+'''
 
-    
-fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+with open('/home/ganesh/Desktop/yaw_values.txt','r') as myfile:
+    data=myfile.read()
+    yaw_data_list=list()
+    actor_list=list()
+    frontal_list=list()
+    profile_list=list()
+    x=data.strip().split('\n')
+    for i in range(len(x)):
+        y=x[i]
+        z=y.split(':')
+        actor=z[0].split('_')[0]
+        yaw=z[1]
+        if abs(float(yaw))<=20:
+            frontal_list.append(z)
+        elif abs(float(yaw))>=45:
+            profile_list.append(z)
+        actor_list.append(actor)
+    myfile.close()
 
-for i in range(3):
-    axes[i].set_title('Prediction : '+str(pred[i]))
-    axes[i].imshow(imread(test_file_paths[i]))
-    axes[i].set_xticks([])
-    axes[i].set_yticks([])
-plt.show()
+paired_images_list=list()
+x=np.empty((0,128))
+y=np.empty((0,128))
+filepath_infer_1=list()
+filepath_infer_2=list()
+for actors in actor_list:
+    #print(len(frontal_list))
+    actor_dir= image_dir_basepath + '/' + actors
+    print(actors)
+    res1=list()
+    res2=list()
+    for i,items in enumerate(frontal_list):
+        if (actors in items[0]):
+            print(items[0])
+            res1.append(items)
+    for j,items2 in enumerate(profile_list):
+        if(actors in items2[0]):
+            res2.append(items2)
+    print(res1)
+    for k in range(2):
+        img=actor_dir +'/' + res1[k][0]
+        print(img)
+        img2=actor_dir +'/'+ res2[k][0]
+        print(img2)
+        filepath_infer_1.append(img)
+        filepath_infer_2.append(img2)
+    y=np.append(y,infer(le,clf,filepath_infer_1),axis=0)
+    x=np.append(x,infer(le,clf,filepath_infer_2),axis=0)
+

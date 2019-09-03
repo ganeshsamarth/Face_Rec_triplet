@@ -5,45 +5,17 @@ from keras.layers import Dense, Input, Dropout, Lambda
 
 # load embeddings
 
-# load yaw values and create pairs of frontal and profile
-with open('/home/ganesh/Desktop/yaw_values.txt','r') as myfile:
-    data=myfile.read()
-    yaw_data_list=list()
-    actor_list=list()
-    frontal_list=list()
-    profile_list=list()
-    x=data.strip().split('\n')
-    for i in range(len(x)):
-        y=x[i]
-        z=y.split(':')
-        actor=z[0].split('_')[0]
-        yaw=z[1]
-        
-        if abs(yaw)<=20:
-            frontal_list.append(z)
-        elif abs(yaw)>=45:
-            profile_list.append(z)
-        actor_list.append(actor)
-    myfile.close()
-for actors in actor_list:
 
+#defining final yaw calculation
+def yaw_coeff(yaw):
+    value=(((4/180)*yaw) -1 )
+    sig_value=1./(1.+e^(-value))
+    return sig_value
+def only_first_vector(x):
+    return x[1:]
 
-
-    
-
- #defining final yaw calculation
- def yaw_coeff(yaw):
-     value=(((4/180)*yaw) -1 )
-     sig_value=1./(1.+e^(-value))
-     return sig_value
-        
-
-# neural network definition
-inputs=Input(shape=(128,2,))
-output = Dense(128,activation='relu')(inputs)
-outputs = Dense(128, activation='relu')(output)
-outputs = Dropout(0.4)(outputs)
-model=Model(inputs=inputs,outputs=new_embed_calc(outputs,0.5,inputs))
+def only_yaw_vector(x):
+    return x[0]
 
 def new_embed_calc(outputs,yaw,inputs):
     yaw_coefficient = yaw_coeff(yaw)
@@ -51,12 +23,22 @@ def new_embed_calc(outputs,yaw,inputs):
     return final_value
     
 
-
-# final embedding definition
-
-
-# custom loss function
+# neural network definition
+inputs=Input(shape=(129,))
+layer1 = Lambda(only_first_vector)
+yaw_layer = Lambda(only_yaw_vector)
+layer2 = layer1(inputs)
+output = Dense(128,activation='relu')(layer2)
+outputs = Dense(128, activation='relu')(output)
+outputs = Dropout(0.4)(outputs)
+layer_final = Lambda(new_embed_calc)
+final_output = layer_final(outputs,yaw_layer(inputs),layer2)
+model=Model(inputs=inputs,outputs=final_output)
 
 # training
+
+model.compile(optimizer='rmsprop',loss='mean_squared_error',metrics=[accuracy])
+
+model.fit()
 
 
